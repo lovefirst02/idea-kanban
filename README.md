@@ -10,6 +10,8 @@ A local web kanban board for managing ideas and project status. Drag and drop ca
 - 🔄 **Real-time Sync** - Auto-refresh when files change
 - 🔍 **Search & Filter** - Find ideas by name, ID, or filter by priority
 - ✏️ **CRUD Operations** - Create, edit, and delete ideas
+- 📢 **Discord Webhook** - Send notifications to Discord channels
+- 🤖 **OpenClaw Integration** - Notify OpenClaw agents via JSONL file
 
 ## Installation
 
@@ -29,6 +31,52 @@ npm start
 The kanban board will read/write Markdown files from:
 ```
 ~/.openclaw/workspace-project-manager/memory/ideas/
+```
+
+## Discord Webhook
+
+Configure Discord notifications:
+
+1. Click ⚙️ in the header
+2. Paste your Discord Webhook URL
+3. Save
+
+Or use environment variable:
+```bash
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/xxx/xxx npm start
+```
+
+## OpenClaw Integration
+
+The kanban writes notifications to a JSONL file that OpenClaw agents can poll:
+
+**File:** `~/.openclaw/workspace-project-manager/memory/notifications.jsonl`
+
+**Format:**
+```json
+{"id": "notif-xxx", "timestamp": "2026-02-09T09:40:00Z", "action": "status_change", "ideaId": "IDEA-001", "ideaName": "xxx", "from": "📝 待審核", "to": "✅ 已批准", "read": false}
+```
+
+**Actions:** `create`, `update`, `delete`, `status_change`
+
+**API Endpoints:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/notifications | Get all notifications |
+| GET | /api/notifications?unread=true | Get unread only |
+| PATCH | /api/notifications/mark-read | Mark as read |
+| DELETE | /api/notifications/cleanup | Clean old (default 7 days) |
+
+**Mark as read example:**
+```bash
+curl -X PATCH http://localhost:3456/api/notifications/mark-read \
+  -H "Content-Type: application/json" \
+  -d '{"ids": ["notif-xxx"]}'
+
+# Or mark all as read:
+curl -X PATCH http://localhost:3456/api/notifications/mark-read \
+  -H "Content-Type: application/json" \
+  -d '{"ids": "all"}'
 ```
 
 ## Card Information
@@ -71,6 +119,8 @@ Description of the idea...
 | PUT | /api/ideas/:id | Update idea |
 | PATCH | /api/ideas/:id/status | Quick status update |
 | DELETE | /api/ideas/:id | Delete idea |
+| GET | /api/settings | Get settings |
+| PUT | /api/settings/webhook | Update webhook URL |
 
 ## Keyboard Shortcuts
 
@@ -82,13 +132,16 @@ Description of the idea...
 ```
 idea-kanban/
 ├── server/
-│   ├── index.js      # Express server + SSE
-│   ├── api.js        # REST API routes
-│   └── markdown.js   # Markdown read/write
+│   ├── index.js         # Express server + SSE
+│   ├── api.js           # REST API routes
+│   ├── markdown.js      # Markdown read/write
+│   ├── webhook.js       # Discord webhook
+│   └── notifications.js # OpenClaw notifications
 ├── public/
-│   ├── index.html    # Main page
-│   ├── style.css     # Dark theme styles
-│   └── app.js        # Frontend logic
+│   ├── index.html       # Main page
+│   ├── style.css        # Dark theme styles
+│   └── app.js           # Frontend logic
+├── config.json          # Webhook config (auto-created)
 ├── package.json
 └── README.md
 ```

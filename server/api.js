@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const md = require('./markdown');
 const webhook = require('./webhook');
+const notifications = require('./notifications');
 
 // GET /api/ideas - Get all ideas
 router.get('/ideas', (req, res) => {
@@ -34,6 +35,9 @@ router.post('/ideas', async (req, res) => {
     // Send webhook notification
     await webhook.sendNotification('create', idea);
     
+    // Write to notifications.jsonl for OpenClaw
+    notifications.notifyCreate(idea);
+    
     res.status(201).json({ success: true, data: idea });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -55,8 +59,12 @@ router.put('/ideas/:id', async (req, res) => {
         oldStatus: oldIdea.status,
         newStatus: idea.status
       });
+      // Write to notifications.jsonl for OpenClaw
+      notifications.notifyStatusChange(idea, oldIdea.status, idea.status);
     } else {
       await webhook.sendNotification('update', idea);
+      // Write to notifications.jsonl for OpenClaw
+      notifications.notifyUpdate(idea);
     }
     
     res.json({ success: true, data: idea });
@@ -85,6 +93,8 @@ router.patch('/ideas/:id/status', async (req, res) => {
         oldStatus: oldIdea.status,
         newStatus: status
       });
+      // Write to notifications.jsonl for OpenClaw
+      notifications.notifyStatusChange(idea, oldIdea.status, status);
     }
     
     res.json({ success: true, data: idea });
@@ -105,9 +115,53 @@ router.delete('/ideas/:id', async (req, res) => {
     // Send delete notification
     if (idea) {
       await webhook.sendNotification('delete', idea);
+      // Write to notifications.jsonl for OpenClaw
+      notifications.notifyDelete(idea);
     }
     
     res.json({ success: true, message: 'Idea deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ===== Notifications API (for OpenClaw) =====
+
+// GET /api/notifications - Get all notifications
+router.get('/notifications', (req, res) => {
+  try {
+    const unreadOnly = req.query.unread === 'true';
+    const data = unreadOnly 
+      ? notifications.getUnreadNotifications()
+      : notifications.getAllNotifications();
+    
+    res.json({ success: true, data, count: data.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PATCH /api/notifications/mark-read - Mark notifications as read
+router.patch('/notifications/mark-read', (req, res) => {
+  try {
+    const { ids } = req.body; // array of ids or 'all'
+    if (!ids) {
+      return res.status(400).json({ success: false, error: 'ids is required (array or "all")' });
+    }
+    
+    const updated = notifications.markAsRead(ids);
+    res.json({ success: true, message: `${updated} notification(s) marked as read` });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/notifications/cleanup - Clean old notifications
+router.delete('/notifications/cleanup', (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 7;
+    const removed = notifications.cleanOldNotifications(days);
+    res.json({ success: true, message: `${removed} old notification(s) removed` });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
