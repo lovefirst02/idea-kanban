@@ -50,7 +50,7 @@ async function notifyOpenClaw(message) {
   }
   
   try {
-    const response = await fetch(`${gatewayUrl}/api/cron/wake`, {
+    const response = await fetch(`${gatewayUrl}/hooks/wake`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
