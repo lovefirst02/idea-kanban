@@ -148,6 +148,12 @@ async function sendDiscordNotification(type, idea, extra = {}) {
       color = 0xe0af68; // yellow
       break;
     
+    case 'manual':
+      title = '📢 用戶手動通知';
+      description = `**${idea.name}**`;
+      color = 0xbb9af7; // purple
+      break;
+    
     default:
       return false;
   }

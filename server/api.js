@@ -229,4 +229,40 @@ async function testWebhook(url) {
   }
 }
 
+// ===== Notify PM API =====
+
+// POST /api/notify-pm - Manually notify PM Agent
+router.post('/notify-pm', async (req, res) => {
+  try {
+    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+    const message = `【看板通知】用戶手動請求
+操作：用戶點擊「通知 PM」按鈕
+請求：請 PM Agent 檢查看板狀態
+時間：${timestamp}`;
+
+    // Send Discord webhook
+    await webhook.sendDiscordNotification('manual', { 
+      id: 'MANUAL', 
+      name: '用戶請求 PM Agent 檢查看板',
+      priority: 'High',
+      status: '📢 手動通知'
+    });
+
+    // Send OpenClaw wake event
+    await webhook.notifyOpenClaw(message);
+
+    // Write to notifications.jsonl
+    notifications.addNotification({
+      action: 'manual_notify',
+      ideaId: 'MANUAL',
+      ideaName: '用戶請求 PM Agent 檢查看板',
+      message: '用戶點擊「通知 PM」按鈕'
+    });
+
+    res.json({ success: true, message: '已發送通知，PM Agent 會盡快回應' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

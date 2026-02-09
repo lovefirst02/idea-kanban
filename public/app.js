@@ -432,6 +432,47 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ===== Notify PM Button =====
+const btnNotifyPM = document.getElementById('btn-notify-pm');
+
+async function notifyPM() {
+  const btn = btnNotifyPM;
+  const originalText = btn.textContent;
+  
+  // Disable button
+  btn.disabled = true;
+  btn.textContent = '發送中...';
+  
+  try {
+    const res = await fetch('/api/notify-pm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      btn.textContent = '✅ 已通知';
+      btn.classList.add('success');
+      showToast(data.message, 'success');
+      
+      // Re-enable after 3 seconds
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.classList.remove('success');
+        btn.disabled = false;
+      }, 3000);
+    } else {
+      throw new Error(data.error);
+    }
+  } catch (error) {
+    btn.textContent = originalText;
+    btn.disabled = false;
+    showToast('通知失敗: ' + error.message, 'error');
+  }
+}
+
+btnNotifyPM.addEventListener('click', notifyPM);
+
 // Initialize
 fetchIdeas();
 setupSSE();
