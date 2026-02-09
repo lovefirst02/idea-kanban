@@ -37,11 +37,73 @@ function formatTime() {
   return new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
 }
 
+// ===== OpenClaw Gateway Integration =====
+
+// Send wake event to OpenClaw Gateway
+async function notifyOpenClaw(message) {
+  const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || 'http://localhost:4444';
+  const token = process.env.OPENCLAW_GATEWAY_TOKEN;
+  
+  if (!token) {
+    console.log('OpenClaw token not configured, skipping wake event');
+    return false;
+  }
+  
+  try {
+    const response = await fetch(`${gatewayUrl}/api/cron/wake`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        text: message,
+        mode: 'now'
+      })
+    });
+    
+    if (!response.ok) {
+      console.error('OpenClaw wake error:', response.status);
+      return false;
+    }
+    
+    console.log('OpenClaw wake event sent');
+    return true;
+  } catch (error) {
+    console.error('OpenClaw wake error:', error.message);
+    return false;
+  }
+}
+
+// Generate wake message for different actions
+function generateWakeMessage(type, idea, extra = {}) {
+  const time = formatTime();
+  
+  switch (type) {
+    case 'create':
+      return `【看板通知】新點子建立\n點子: ${idea.id} - ${idea.name}\n優先級: ${idea.priority || 'Medium'}\n時間: ${time}`;
+    
+    case 'update':
+      return `【看板通知】點子已更新\n點子: ${idea.id} - ${idea.name}\n時間: ${time}`;
+    
+    case 'delete':
+      return `【看板通知】點子已刪除\n點子: ${idea.id} - ${idea.name}\n時間: ${time}`;
+    
+    case 'status':
+      return `【看板通知】狀態變更\n點子: ${idea.id} - ${idea.name}\n變更: ${extra.oldStatus} → ${extra.newStatus}\n時間: ${time}`;
+    
+    default:
+      return `【看板通知】${idea.id} - ${idea.name}`;
+  }
+}
+
+// ===== Discord Webhook =====
+
 // Send Discord notification
-async function sendNotification(type, idea, extra = {}) {
+async function sendDiscordNotification(type, idea, extra = {}) {
   const webhookUrl = getWebhookUrl();
   if (!webhookUrl) {
-    console.log('Webhook not configured, skipping notification');
+    console.log('Discord webhook not configured, skipping');
     return false;
   }
 
@@ -127,22 +189,38 @@ async function sendNotification(type, idea, extra = {}) {
     });
 
     if (!response.ok) {
-      console.error('Webhook error:', response.status, await response.text());
+      console.error('Discord webhook error:', response.status, await response.text());
       return false;
     }
 
-    console.log(`Notification sent: ${type} - ${idea.id}`);
+    console.log(`Discord notification sent: ${type} - ${idea.id}`);
     return true;
   } catch (error) {
-    console.error('Webhook error:', error.message);
+    console.error('Discord webhook error:', error.message);
     return false;
   }
+}
+
+// ===== Combined Notification =====
+
+// Send notification to both Discord and OpenClaw
+async function sendNotification(type, idea, extra = {}) {
+  // Send Discord webhook (non-blocking)
+  sendDiscordNotification(type, idea, extra).catch(console.error);
+  
+  // Send OpenClaw wake event
+  const wakeMessage = generateWakeMessage(type, idea, extra);
+  await notifyOpenClaw(wakeMessage);
+  
+  return true;
 }
 
 module.exports = {
   getWebhookUrl,
   setWebhookUrl,
   sendNotification,
+  sendDiscordNotification,
+  notifyOpenClaw,
   loadConfig,
   saveConfig
 };

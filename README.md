@@ -48,7 +48,21 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/xxx/xxx npm start
 
 ## OpenClaw Integration
 
-The kanban writes notifications to a JSONL file that OpenClaw agents can poll:
+### Wake Event (Direct Agent Trigger)
+
+The kanban can directly wake OpenClaw agents via Gateway API:
+
+```bash
+OPENCLAW_GATEWAY_URL=http://localhost:4444 \
+OPENCLAW_GATEWAY_TOKEN=your-token \
+npm start
+```
+
+When configured, every kanban operation will send a wake event to trigger the agent immediately.
+
+### JSONL File (Polling)
+
+The kanban also writes notifications to a JSONL file that OpenClaw agents can poll:
 
 **File:** `~/.openclaw/workspace-project-manager/memory/notifications.jsonl`
 
