@@ -39,9 +39,10 @@ function formatTime() {
 
 // ===== OpenClaw Gateway Integration =====
 
-// Send wake event to OpenClaw Gateway (triggers Main Session)
-// Note: /hooks/wake only wakes Main Session, not specific agent sessions
-// For PM Agent notification, use notifications.jsonl + heartbeat polling
+// PM Agent session key for relay
+const PM_AGENT_SESSION = 'agent:project-manager:discord:channel:1470317180674637824';
+
+// Send wake event to Main Agent, which will relay to PM Agent
 async function notifyOpenClaw(message) {
   const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || 'http://127.0.0.1:18789';
   const token = process.env.OPENCLAW_GATEWAY_TOKEN;
@@ -51,9 +52,17 @@ async function notifyOpenClaw(message) {
     return false;
   }
   
+  // Format message for Main Agent to relay to PM Agent
+  const wakeMessage = `【看板通知-轉發給PM】
+請使用 sessions_send 將以下訊息轉發給 project-manager:
+
+${message}
+
+sessionKey: ${PM_AGENT_SESSION}`;
+
   try {
-    // Use /hooks/wake to trigger Main Session
-    // Main Session can then relay to PM Agent if needed
+    // Use /hooks/wake to trigger Main Agent
+    // Main Agent will relay the message to PM Agent
     const response = await fetch(`${gatewayUrl}/hooks/wake`, {
       method: 'POST',
       headers: {
@@ -61,7 +70,7 @@ async function notifyOpenClaw(message) {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        text: message,
+        text: wakeMessage,
         mode: 'now'
       })
     });
@@ -72,7 +81,7 @@ async function notifyOpenClaw(message) {
       return false;
     }
     
-    console.log('OpenClaw wake event sent (Main Session)');
+    console.log('OpenClaw wake event sent (Main Agent will relay to PM)');
     return true;
   } catch (error) {
     console.error('OpenClaw wake error:', error.message);
