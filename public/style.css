@@ -104,6 +104,21 @@ header h1 {
   font-weight: 600;
 }
 
+.btn-icon {
+  background: none;
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent-color);
+}
+
 /* Kanban Board */
 .kanban-board {
   display: grid;
@@ -310,6 +325,10 @@ header h1 {
   overflow-y: auto;
 }
 
+.modal-content.modal-small {
+  max-width: 400px;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -394,6 +413,34 @@ header h1 {
 
 .hidden {
   display: none !important;
+}
+
+/* Form hints */
+.form-hint {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Webhook status */
+.webhook-status {
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.webhook-status.configured {
+  background: rgba(158, 206, 106, 0.15);
+  border: 1px solid var(--success-color);
+  color: var(--success-color);
+}
+
+.webhook-status.not-configured {
+  background: rgba(121, 130, 169, 0.15);
+  border: 1px solid var(--text-secondary);
+  color: var(--text-secondary);
 }
 
 /* Empty state */

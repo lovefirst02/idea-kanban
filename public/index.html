@@ -18,6 +18,7 @@
         <option value="Low">🟢 Low</option>
       </select>
       <button id="btn-new" class="btn-primary">+ 新增點子</button>
+      <button id="btn-settings" class="btn-icon" title="設定">⚙️</button>
     </div>
   </header>
 
@@ -112,6 +113,28 @@
           <button type="button" id="btn-delete" class="btn-danger hidden">刪除</button>
           <div class="spacer"></div>
           <button type="button" id="btn-cancel" class="btn-secondary">取消</button>
+          <button type="submit" class="btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h2>⚙️ 設定</h2>
+        <button class="btn-close" id="btn-settings-close">&times;</button>
+      </div>
+      <form id="settings-form">
+        <div class="form-group">
+          <label for="webhook-url">Discord Webhook URL</label>
+          <input type="url" id="webhook-url" name="webhookUrl" placeholder="https://discord.com/api/webhooks/...">
+          <small class="form-hint">設定後，看板變更將自動通知到 Discord 頻道</small>
+        </div>
+        <div id="webhook-status" class="webhook-status"></div>
+        <div class="form-actions">
+          <button type="button" id="btn-settings-cancel" class="btn-secondary">取消</button>
           <button type="submit" class="btn-primary">儲存</button>
         </div>
       </form>

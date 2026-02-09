@@ -323,14 +323,7 @@ modal.addEventListener('click', (e) => {
   if (e.target === modal) closeModal();
 });
 
-// Keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeModal();
-  if (e.key === 'n' && e.ctrlKey) {
-    e.preventDefault();
-    openNewModal();
-  }
-});
+// Keyboard shortcuts (moved to settings section)
 
 // Toast notifications
 function showToast(message, type = 'info') {
@@ -357,6 +350,87 @@ function setupSSE() {
     setTimeout(setupSSE, 5000);
   };
 }
+
+// ===== Settings =====
+const settingsModal = document.getElementById('settings-modal');
+const settingsForm = document.getElementById('settings-form');
+const btnSettings = document.getElementById('btn-settings');
+const btnSettingsClose = document.getElementById('btn-settings-close');
+const btnSettingsCancel = document.getElementById('btn-settings-cancel');
+const webhookUrlInput = document.getElementById('webhook-url');
+const webhookStatus = document.getElementById('webhook-status');
+
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    const data = await res.json();
+    if (data.success) {
+      if (data.data.webhookConfigured) {
+        webhookStatus.className = 'webhook-status configured';
+        webhookStatus.textContent = '✅ Webhook 已設定: ' + data.data.webhookUrl;
+      } else {
+        webhookStatus.className = 'webhook-status not-configured';
+        webhookStatus.textContent = '⚠️ Webhook 未設定';
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load settings:', error);
+  }
+}
+
+function openSettingsModal() {
+  loadSettings();
+  webhookUrlInput.value = '';
+  settingsModal.classList.remove('hidden');
+}
+
+function closeSettingsModal() {
+  settingsModal.classList.add('hidden');
+}
+
+settingsForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const webhookUrl = webhookUrlInput.value.trim();
+  
+  try {
+    const res = await fetch('/api/settings/webhook', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ webhookUrl })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      showToast(data.message, 'success');
+      closeSettingsModal();
+    } else {
+      showToast('設定失敗: ' + data.error, 'error');
+    }
+  } catch (error) {
+    showToast('設定失敗: ' + error.message, 'error');
+  }
+});
+
+btnSettings.addEventListener('click', openSettingsModal);
+btnSettingsClose.addEventListener('click', closeSettingsModal);
+btnSettingsCancel.addEventListener('click', closeSettingsModal);
+
+settingsModal.addEventListener('click', (e) => {
+  if (e.target === settingsModal) closeSettingsModal();
+});
+
+// Update keyboard handler to close settings modal too
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeModal();
+    closeSettingsModal();
+  }
+  if (e.key === 'n' && e.ctrlKey) {
+    e.preventDefault();
+    openNewModal();
+  }
+});
 
 // Initialize
 fetchIdeas();
