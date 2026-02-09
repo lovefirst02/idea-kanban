@@ -39,38 +39,44 @@ function formatTime() {
 
 // ===== OpenClaw Gateway Integration =====
 
-// Send wake event to OpenClaw Gateway
+// PM Agent session key
+const PM_AGENT_SESSION = 'agent:project-manager:discord:channel:1470317180674637824';
+
+// Send message to PM Agent via OpenClaw Gateway
 async function notifyOpenClaw(message) {
-  const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || 'http://localhost:4444';
+  const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || 'http://127.0.0.1:18789';
   const token = process.env.OPENCLAW_GATEWAY_TOKEN;
   
   if (!token) {
-    console.log('OpenClaw token not configured, skipping wake event');
+    console.log('OpenClaw token not configured, skipping agent notification');
     return false;
   }
   
   try {
-    const response = await fetch(`${gatewayUrl}/hooks/wake`, {
+    // Use /hooks/agent to send directly to PM Agent
+    const response = await fetch(`${gatewayUrl}/hooks/agent`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        text: message,
-        mode: 'now'
+        message: message,
+        sessionKey: PM_AGENT_SESSION,
+        wakeMode: 'now'
       })
     });
     
     if (!response.ok) {
-      console.error('OpenClaw wake error:', response.status);
+      const errText = await response.text();
+      console.error('OpenClaw agent notification error:', response.status, errText);
       return false;
     }
     
-    console.log('OpenClaw wake event sent');
+    console.log('OpenClaw PM Agent notified successfully');
     return true;
   } catch (error) {
-    console.error('OpenClaw wake error:', error.message);
+    console.error('OpenClaw agent notification error:', error.message);
     return false;
   }
 }
