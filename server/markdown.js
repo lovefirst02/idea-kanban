@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const matter = require('gray-matter');
 
-const IDEAS_PATH = '/home/hao0x0/.openclaw/workspace-project-manager/memory/ideas';
+const IDEAS_PATH = process.env.IDEAS_PATH || '/home/hao0x0/.openclaw/workspace-project-manager/memory/ideas';
 
 // Ensure directory exists
 function ensureDir() {
@@ -19,7 +19,7 @@ function parseIdeaFile(filePath) {
     
     // Extract ID from filename if not in frontmatter
     const filename = path.basename(filePath, '.md');
-    const id = data.id || filename;
+    let id = data.id || filename;
     
     // Parse status from content if not in frontmatter
     let status = data.status || '📝 待審核';

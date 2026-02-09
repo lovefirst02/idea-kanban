@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  idea-kanban:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: idea-kanban
+    restart: unless-stopped
+    ports:
+      - "3456:3456"
+    environment:
+      - NODE_ENV=production
+      - PORT=3456
+      - IDEAS_PATH=/data/ideas
+    volumes:
+      - /home/hao0x0/.openclaw/workspace-project-manager/memory/ideas:/data/ideas
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3456/api/ideas"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
