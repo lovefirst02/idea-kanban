@@ -39,44 +39,43 @@ function formatTime() {
 
 // ===== OpenClaw Gateway Integration =====
 
-// PM Agent session key
-const PM_AGENT_SESSION = 'agent:project-manager:discord:channel:1470317180674637824';
-
-// Send message to PM Agent via OpenClaw Gateway
+// Send wake event to OpenClaw Gateway (triggers Main Session)
+// Note: /hooks/wake only wakes Main Session, not specific agent sessions
+// For PM Agent notification, use notifications.jsonl + heartbeat polling
 async function notifyOpenClaw(message) {
   const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || 'http://127.0.0.1:18789';
   const token = process.env.OPENCLAW_GATEWAY_TOKEN;
   
   if (!token) {
-    console.log('OpenClaw token not configured, skipping agent notification');
+    console.log('OpenClaw token not configured, skipping wake event');
     return false;
   }
   
   try {
-    // Use /hooks/agent to send directly to PM Agent
-    const response = await fetch(`${gatewayUrl}/hooks/agent`, {
+    // Use /hooks/wake to trigger Main Session
+    // Main Session can then relay to PM Agent if needed
+    const response = await fetch(`${gatewayUrl}/hooks/wake`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        message: message,
-        sessionKey: PM_AGENT_SESSION,
-        wakeMode: 'now'
+        text: message,
+        mode: 'now'
       })
     });
     
     if (!response.ok) {
       const errText = await response.text();
-      console.error('OpenClaw agent notification error:', response.status, errText);
+      console.error('OpenClaw wake error:', response.status, errText);
       return false;
     }
     
-    console.log('OpenClaw PM Agent notified successfully');
+    console.log('OpenClaw wake event sent (Main Session)');
     return true;
   } catch (error) {
-    console.error('OpenClaw agent notification error:', error.message);
+    console.error('OpenClaw wake error:', error.message);
     return false;
   }
 }
