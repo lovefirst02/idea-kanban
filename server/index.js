@@ -2,6 +2,8 @@ const express = require('express');
 const path = require('path');
 const chokidar = require('chokidar');
 const api = require('./api');
+const sprintRouter = require('./sprint');
+const { COLUMNS } = require('./columns');
 const { IDEAS_PATH } = require('./markdown');
 
 const app = express();
@@ -13,6 +15,12 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // API routes
 app.use('/api', api);
+app.use('/api/sprints', sprintRouter);
+
+// Get columns configuration
+app.get('/api/columns', (req, res) => {
+  res.json({ success: true, data: COLUMNS });
+});
 
 // SSE for live updates
 let clients = [];

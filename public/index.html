@@ -17,51 +17,90 @@
         <option value="Medium">🟡 Medium</option>
         <option value="Low">🟢 Low</option>
       </select>
+      <select id="filter-sprint">
+        <option value="">所有 Sprint</option>
+        <option value="backlog">📋 Backlog</option>
+      </select>
+      <button id="btn-sprint" class="btn-sprint" title="Sprint 管理">🏃 Sprint</button>
       <button id="btn-new" class="btn-primary">+ 新增點子</button>
       <button id="btn-notify-pm" class="btn-notify-pm" title="通知 PM Agent 檢查看板">📢 通知 PM</button>
       <button id="btn-settings" class="btn-icon" title="設定">⚙️</button>
     </div>
   </header>
 
-  <main class="kanban-board">
-    <div class="kanban-column" data-status="📝 待審核">
-      <div class="column-header">
-        <span class="column-icon">📝</span>
-        <span class="column-title">待審核</span>
-        <span class="column-count">0</span>
+  <div class="main-container">
+    <!-- Sprint Sidebar -->
+    <aside id="sprint-sidebar" class="sprint-sidebar hidden">
+      <div class="sidebar-header">
+        <h3>🏃 Sprint 管理</h3>
+        <button class="btn-icon" id="btn-close-sidebar">✕</button>
       </div>
-      <div class="column-cards" id="col-pending"></div>
-    </div>
-
-    <div class="kanban-column" data-status="✅ 已批准">
-      <div class="column-header">
-        <span class="column-icon">✅</span>
-        <span class="column-title">已批准</span>
-        <span class="column-count">0</span>
+      <div class="sidebar-content">
+        <button id="btn-new-sprint" class="btn-primary btn-full">+ 新增 Sprint</button>
+        <div id="sprint-list" class="sprint-list">
+          <!-- Sprint cards will be rendered here -->
+        </div>
       </div>
-      <div class="column-cards" id="col-approved"></div>
-    </div>
+    </aside>
 
-    <div class="kanban-column" data-status="🚧 開發中">
-      <div class="column-header">
-        <span class="column-icon">🚧</span>
-        <span class="column-title">開發中</span>
-        <span class="column-count">0</span>
+    <main class="kanban-board">
+      <div class="kanban-column" data-status="backlog">
+        <div class="column-header" style="border-color: #6b7280">
+          <span class="column-icon">📋</span>
+          <span class="column-title">Backlog</span>
+          <span class="column-count">0</span>
+        </div>
+        <div class="column-cards" id="col-backlog"></div>
       </div>
-      <div class="column-cards" id="col-inprogress"></div>
-    </div>
 
-    <div class="kanban-column" data-status="✅ 已完成">
-      <div class="column-header">
-        <span class="column-icon">🎉</span>
-        <span class="column-title">已完成</span>
-        <span class="column-count">0</span>
+      <div class="kanban-column" data-status="pending">
+        <div class="column-header" style="border-color: #eab308">
+          <span class="column-icon">📝</span>
+          <span class="column-title">待審核</span>
+          <span class="column-count">0</span>
+        </div>
+        <div class="column-cards" id="col-pending"></div>
       </div>
-      <div class="column-cards" id="col-done"></div>
-    </div>
-  </main>
 
-  <!-- Modal for editing -->
+      <div class="kanban-column" data-status="approved">
+        <div class="column-header" style="border-color: #22c55e">
+          <span class="column-icon">✅</span>
+          <span class="column-title">已批准</span>
+          <span class="column-count">0</span>
+        </div>
+        <div class="column-cards" id="col-approved"></div>
+      </div>
+
+      <div class="kanban-column" data-status="in-progress">
+        <div class="column-header" style="border-color: #3b82f6">
+          <span class="column-icon">🚧</span>
+          <span class="column-title">開發中</span>
+          <span class="column-count">0</span>
+        </div>
+        <div class="column-cards" id="col-inprogress"></div>
+      </div>
+
+      <div class="kanban-column" data-status="testing">
+        <div class="column-header" style="border-color: #a855f7">
+          <span class="column-icon">🧪</span>
+          <span class="column-title">測試中</span>
+          <span class="column-count">0</span>
+        </div>
+        <div class="column-cards" id="col-testing"></div>
+      </div>
+
+      <div class="kanban-column" data-status="done">
+        <div class="column-header" style="border-color: #10b981">
+          <span class="column-icon">🎉</span>
+          <span class="column-title">已完成</span>
+          <span class="column-count">0</span>
+        </div>
+        <div class="column-cards" id="col-done"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal for editing ideas -->
   <div id="modal" class="modal hidden">
     <div class="modal-content">
       <div class="modal-header">
@@ -77,10 +116,12 @@
           <div class="form-group">
             <label for="status">狀態</label>
             <select id="status" name="status">
-              <option value="📝 待審核">📝 待審核</option>
-              <option value="✅ 已批准">✅ 已批准</option>
-              <option value="🚧 開發中">🚧 開發中</option>
-              <option value="✅ 已完成">✅ 已完成</option>
+              <option value="backlog">📋 Backlog</option>
+              <option value="pending">📝 待審核</option>
+              <option value="approved">✅ 已批准</option>
+              <option value="in-progress">🚧 開發中</option>
+              <option value="testing">🧪 測試中</option>
+              <option value="done">✅ 已完成</option>
             </select>
           </div>
           <div class="form-group">
@@ -98,13 +139,21 @@
             <input type="text" id="assignee" name="assignee" placeholder="例: Coding Agent">
           </div>
           <div class="form-group">
+            <label for="sprint">Sprint</label>
+            <select id="sprint" name="sprint">
+              <option value="">未分配</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
             <label for="progress">進度 (%)</label>
             <input type="number" id="progress" name="progress" min="0" max="100" value="0">
           </div>
-        </div>
-        <div class="form-group">
-          <label for="github">GitHub 連結</label>
-          <input type="url" id="github" name="github" placeholder="https://github.com/...">
+          <div class="form-group">
+            <label for="github">GitHub 連結</label>
+            <input type="url" id="github" name="github" placeholder="https://github.com/...">
+          </div>
         </div>
         <div class="form-group">
           <label for="description">描述</label>
@@ -114,6 +163,50 @@
           <button type="button" id="btn-delete" class="btn-danger hidden">刪除</button>
           <div class="spacer"></div>
           <button type="button" id="btn-cancel" class="btn-secondary">取消</button>
+          <button type="submit" class="btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Sprint Modal -->
+  <div id="sprint-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="sprint-modal-title">新增 Sprint</h2>
+        <button class="btn-close" id="btn-sprint-close">&times;</button>
+      </div>
+      <form id="sprint-form">
+        <div class="form-group">
+          <label for="sprint-name">Sprint 名稱 *</label>
+          <input type="text" id="sprint-name" name="name" required placeholder="例: Sprint 1">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="sprint-start">開始日期</label>
+            <input type="date" id="sprint-start" name="startDate">
+          </div>
+          <div class="form-group">
+            <label for="sprint-end">結束日期</label>
+            <input type="date" id="sprint-end" name="endDate">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="sprint-status">狀態</label>
+          <select id="sprint-status" name="status">
+            <option value="planned">📅 計劃中</option>
+            <option value="active">🏃 進行中</option>
+            <option value="completed">✅ 已完成</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="sprint-goals">目標（每行一個）</label>
+          <textarea id="sprint-goals" name="goals" rows="3" placeholder="完成 IDEA-001&#10;完成 IDEA-002"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="btn-sprint-delete" class="btn-danger hidden">刪除</button>
+          <div class="spacer"></div>
+          <button type="button" id="btn-sprint-cancel" class="btn-secondary">取消</button>
           <button type="submit" class="btn-primary">儲存</button>
         </div>
       </form>
@@ -141,6 +234,9 @@
       </form>
     </div>
   </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container"></div>
 
   <script src="app.js"></script>
 </body>

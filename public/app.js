@@ -1,6 +1,8 @@
 // State
 let ideas = [];
+let sprints = [];
 let editingId = null;
+let editingSprintId = null;
 let draggedCard = null;
 
 // DOM Elements
@@ -13,16 +15,43 @@ const btnCancel = document.getElementById('btn-cancel');
 const btnDelete = document.getElementById('btn-delete');
 const searchInput = document.getElementById('search');
 const filterPriority = document.getElementById('filter-priority');
+const filterSprint = document.getElementById('filter-sprint');
 
-// Status column mapping
+// Sprint elements
+const sprintSidebar = document.getElementById('sprint-sidebar');
+const btnSprint = document.getElementById('btn-sprint');
+const btnCloseSidebar = document.getElementById('btn-close-sidebar');
+const btnNewSprint = document.getElementById('btn-new-sprint');
+const sprintList = document.getElementById('sprint-list');
+const sprintModal = document.getElementById('sprint-modal');
+const sprintForm = document.getElementById('sprint-form');
+const sprintModalTitle = document.getElementById('sprint-modal-title');
+const btnSprintClose = document.getElementById('btn-sprint-close');
+const btnSprintCancel = document.getElementById('btn-sprint-cancel');
+const btnSprintDelete = document.getElementById('btn-sprint-delete');
+
+// Status column mapping (new IDs)
 const statusColumns = {
-  '📝 待審核': 'col-pending',
-  '✅ 已批准': 'col-approved',
-  '🚧 開發中': 'col-inprogress',
-  '✅ 已完成': 'col-done'
+  'backlog': 'col-backlog',
+  'pending': 'col-pending',
+  'approved': 'col-approved',
+  'in-progress': 'col-inprogress',
+  'testing': 'col-testing',
+  'done': 'col-done'
 };
 
-// API functions
+// Old status to new ID mapping
+const statusMap = {
+  '📝 待審核': 'pending',
+  '✅ 已批准': 'approved',
+  '🚧 開發中': 'in-progress',
+  '✅ 已完成': 'done',
+  '📋 Backlog': 'backlog',
+  '🧪 測試中': 'testing'
+};
+
+// ===== API functions =====
+
 async function fetchIdeas() {
   try {
     const res = await fetch('/api/ideas');
@@ -33,6 +62,20 @@ async function fetchIdeas() {
     }
   } catch (error) {
     showToast('載入失敗: ' + error.message, 'error');
+  }
+}
+
+async function fetchSprints() {
+  try {
+    const res = await fetch('/api/sprints');
+    const data = await res.json();
+    if (data.success) {
+      sprints = data.data;
+      renderSprintList();
+      updateSprintFilter();
+    }
+  } catch (error) {
+    console.error('Failed to load sprints:', error);
   }
 }
 
@@ -104,16 +147,74 @@ async function deleteIdea(id) {
   }
 }
 
-// Render functions
+// ===== Sprint API =====
+
+async function createSprint(sprint) {
+  try {
+    const res = await fetch('/api/sprints', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sprint)
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Sprint 已建立！', 'success');
+      fetchSprints();
+      return data.data;
+    }
+  } catch (error) {
+    showToast('建立失敗: ' + error.message, 'error');
+  }
+}
+
+async function updateSprint(id, updates) {
+  try {
+    const res = await fetch(`/api/sprints/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Sprint 已更新！', 'success');
+      fetchSprints();
+    }
+  } catch (error) {
+    showToast('更新失敗: ' + error.message, 'error');
+  }
+}
+
+async function deleteSprint(id) {
+  if (!confirm('確定要刪除這個 Sprint 嗎？')) return;
+  
+  try {
+    const res = await fetch(`/api/sprints/${id}`, {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Sprint 已刪除', 'success');
+      closeSprintModal();
+      fetchSprints();
+    }
+  } catch (error) {
+    showToast('刪除失敗: ' + error.message, 'error');
+  }
+}
+
+// ===== Render functions =====
+
 function renderBoard() {
   // Clear all columns
   Object.values(statusColumns).forEach(colId => {
-    document.getElementById(colId).innerHTML = '';
+    const col = document.getElementById(colId);
+    if (col) col.innerHTML = '';
   });
   
   // Filter ideas
   const searchTerm = searchInput.value.toLowerCase();
   const priorityFilter = filterPriority.value;
+  const sprintFilter = filterSprint.value;
   
   const filtered = ideas.filter(idea => {
     const matchSearch = !searchTerm || 
@@ -123,7 +224,16 @@ function renderBoard() {
     
     const matchPriority = !priorityFilter || idea.priority === priorityFilter;
     
-    return matchSearch && matchPriority;
+    // Sprint filter
+    let matchSprint = true;
+    if (sprintFilter === 'backlog') {
+      // Show ideas not in any sprint
+      matchSprint = !idea.sprint;
+    } else if (sprintFilter) {
+      matchSprint = idea.sprint === sprintFilter;
+    }
+    
+    return matchSearch && matchPriority && matchSprint;
   });
   
   // Count per column
@@ -139,7 +249,8 @@ function renderBoard() {
     counts[status]++;
     
     const card = createCard(idea);
-    document.getElementById(colId).appendChild(card);
+    const col = document.getElementById(colId);
+    if (col) col.appendChild(card);
   });
   
   // Update counts
@@ -151,12 +262,21 @@ function renderBoard() {
 }
 
 function normalizeStatus(status) {
+  // If already a valid ID, return it
+  if (statusColumns[status]) return status;
+  
+  // Map old format to new
+  if (statusMap[status]) return statusMap[status];
+  
   // Handle variations
-  if (status.includes('待審核')) return '📝 待審核';
-  if (status.includes('已批准') && !status.includes('完成')) return '✅ 已批准';
-  if (status.includes('開發中') || status.includes('進行中')) return '🚧 開發中';
-  if (status.includes('完成')) return '✅ 已完成';
-  return '📝 待審核';
+  if (status.includes('待審核')) return 'pending';
+  if (status.includes('已批准') && !status.includes('完成')) return 'approved';
+  if (status.includes('開發中') || status.includes('進行中')) return 'in-progress';
+  if (status.includes('測試')) return 'testing';
+  if (status.includes('完成')) return 'done';
+  if (status.includes('Backlog')) return 'backlog';
+  
+  return 'backlog';
 }
 
 function createCard(idea) {
@@ -165,20 +285,28 @@ function createCard(idea) {
   card.dataset.id = idea.id;
   card.draggable = true;
   
-  const priorityClass = `priority-${idea.priority.toLowerCase()}`;
+  const priorityClass = `priority-${(idea.priority || 'medium').toLowerCase()}`;
   const priorityEmoji = idea.priority === 'High' ? '🔴' : idea.priority === 'Medium' ? '🟡' : '🟢';
+  
+  // Find sprint name
+  let sprintBadge = '';
+  if (idea.sprint) {
+    const sprint = sprints.find(s => s.id === idea.sprint);
+    if (sprint) {
+      sprintBadge = `<span class="card-sprint">🏃 ${escapeHtml(sprint.name)}</span>`;
+    }
+  }
   
   card.innerHTML = `
     <div class="card-header">
       <span class="card-id">${idea.id}</span>
-      <span class="card-priority ${priorityClass}">${priorityEmoji} ${idea.priority}</span>
+      <span class="card-priority ${priorityClass}">${priorityEmoji} ${idea.priority || 'Medium'}</span>
     </div>
     <div class="card-name">${escapeHtml(idea.name)}</div>
-    ${idea.assignee ? `
-      <div class="card-meta">
-        <span class="card-assignee">👤 ${escapeHtml(idea.assignee)}</span>
-      </div>
-    ` : ''}
+    <div class="card-meta">
+      ${idea.assignee ? `<span class="card-assignee">👤 ${escapeHtml(idea.assignee)}</span>` : ''}
+      ${sprintBadge}
+    </div>
     ${idea.progress > 0 ? `
       <div class="card-progress">
         <div class="progress-bar">
@@ -189,7 +317,7 @@ function createCard(idea) {
     ` : ''}
     ${idea.github ? `
       <div class="card-github">
-        <a href="${escapeHtml(idea.github)}" target="_blank">🔗 GitHub</a>
+        <a href="${escapeHtml(idea.github)}" target="_blank" onclick="event.stopPropagation()">🔗 GitHub</a>
       </div>
     ` : ''}
   `;
@@ -204,6 +332,98 @@ function createCard(idea) {
   return card;
 }
 
+function renderSprintList() {
+  sprintList.innerHTML = '';
+  
+  if (sprints.length === 0) {
+    sprintList.innerHTML = '<div class="empty-state">尚無 Sprint</div>';
+    return;
+  }
+  
+  // Sort: active first, then by start date
+  const sorted = [...sprints].sort((a, b) => {
+    if (a.status === 'active' && b.status !== 'active') return -1;
+    if (b.status === 'active' && a.status !== 'active') return 1;
+    return new Date(b.startDate || 0) - new Date(a.startDate || 0);
+  });
+  
+  sorted.forEach(sprint => {
+    const card = createSprintCard(sprint);
+    sprintList.appendChild(card);
+  });
+}
+
+function createSprintCard(sprint) {
+  const card = document.createElement('div');
+  card.className = `sprint-card ${sprint.status === 'active' ? 'active' : ''}`;
+  card.dataset.id = sprint.id;
+  
+  // Calculate progress
+  const sprintIdeas = ideas.filter(i => i.sprint === sprint.id);
+  const doneIdeas = sprintIdeas.filter(i => normalizeStatus(i.status) === 'done');
+  const progress = sprintIdeas.length > 0 
+    ? Math.round((doneIdeas.length / sprintIdeas.length) * 100) 
+    : 0;
+  
+  // Format dates
+  const dates = sprint.startDate && sprint.endDate 
+    ? `${sprint.startDate} ~ ${sprint.endDate}`
+    : '日期未設定';
+  
+  // Status display
+  const statusText = sprint.status === 'active' ? '🏃 進行中' 
+    : sprint.status === 'completed' ? '✅ 已完成' 
+    : '📅 計劃中';
+  
+  card.innerHTML = `
+    <div class="sprint-card-header">
+      <span class="sprint-card-name">${escapeHtml(sprint.name)}</span>
+      <span class="sprint-card-status ${sprint.status}">${statusText}</span>
+    </div>
+    <div class="sprint-card-dates">${dates}</div>
+    <div class="sprint-card-progress">
+      <div class="sprint-progress-bar">
+        <div class="sprint-progress-fill" style="width: ${progress}%"></div>
+      </div>
+      <span class="sprint-progress-text">${doneIdeas.length}/${sprintIdeas.length}</span>
+    </div>
+  `;
+  
+  card.addEventListener('click', () => openSprintEditModal(sprint));
+  
+  return card;
+}
+
+function updateSprintFilter() {
+  // Update filter dropdown
+  const currentValue = filterSprint.value;
+  filterSprint.innerHTML = `
+    <option value="">所有 Sprint</option>
+    <option value="backlog">📋 Backlog</option>
+  `;
+  
+  sprints.forEach(sprint => {
+    const option = document.createElement('option');
+    option.value = sprint.id;
+    option.textContent = `🏃 ${sprint.name}`;
+    filterSprint.appendChild(option);
+  });
+  
+  filterSprint.value = currentValue;
+  
+  // Update idea form sprint dropdown
+  const ideaSprintSelect = document.getElementById('sprint');
+  if (ideaSprintSelect) {
+    ideaSprintSelect.innerHTML = '<option value="">未分配</option>';
+    sprints.forEach(sprint => {
+      const option = document.createElement('option');
+      option.value = sprint.id;
+      option.textContent = sprint.name;
+      ideaSprintSelect.appendChild(option);
+    });
+  }
+}
+
 function escapeHtml(text) {
   if (!text) return '';
   const div = document.createElement('div');
@@ -211,11 +431,13 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Modal functions
+// ===== Modal functions =====
+
 function openNewModal() {
   editingId = null;
   modalTitle.textContent = '新增點子';
   ideaForm.reset();
+  document.getElementById('status').value = 'backlog';
   btnDelete.classList.add('hidden');
   modal.classList.remove('hidden');
   document.getElementById('name').focus();
@@ -229,6 +451,7 @@ function openEditModal(idea) {
   document.getElementById('status').value = normalizeStatus(idea.status);
   document.getElementById('priority').value = idea.priority || 'Medium';
   document.getElementById('assignee').value = idea.assignee || '';
+  document.getElementById('sprint').value = idea.sprint || '';
   document.getElementById('progress').value = idea.progress || 0;
   document.getElementById('github').value = idea.github || '';
   document.getElementById('description').value = idea.description || '';
@@ -243,7 +466,38 @@ function closeModal() {
   ideaForm.reset();
 }
 
-// Form submission
+// Sprint modal
+function openNewSprintModal() {
+  editingSprintId = null;
+  sprintModalTitle.textContent = '新增 Sprint';
+  sprintForm.reset();
+  btnSprintDelete.classList.add('hidden');
+  sprintModal.classList.remove('hidden');
+  document.getElementById('sprint-name').focus();
+}
+
+function openSprintEditModal(sprint) {
+  editingSprintId = sprint.id;
+  sprintModalTitle.textContent = '編輯 Sprint';
+  
+  document.getElementById('sprint-name').value = sprint.name || '';
+  document.getElementById('sprint-start').value = sprint.startDate || '';
+  document.getElementById('sprint-end').value = sprint.endDate || '';
+  document.getElementById('sprint-status').value = sprint.status || 'planned';
+  document.getElementById('sprint-goals').value = (sprint.goals || []).join('\n');
+  
+  btnSprintDelete.classList.remove('hidden');
+  sprintModal.classList.remove('hidden');
+}
+
+function closeSprintModal() {
+  sprintModal.classList.add('hidden');
+  editingSprintId = null;
+  sprintForm.reset();
+}
+
+// ===== Form submission =====
+
 ideaForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   
@@ -253,6 +507,7 @@ ideaForm.addEventListener('submit', async (e) => {
     status: formData.get('status'),
     priority: formData.get('priority'),
     assignee: formData.get('assignee'),
+    sprint: formData.get('sprint') || null,
     progress: parseInt(formData.get('progress')) || 0,
     github: formData.get('github'),
     description: formData.get('description')
@@ -267,7 +522,32 @@ ideaForm.addEventListener('submit', async (e) => {
   closeModal();
 });
 
-// Drag and drop
+sprintForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const formData = new FormData(sprintForm);
+  const goalsText = formData.get('goals') || '';
+  const goals = goalsText.split('\n').map(g => g.trim()).filter(g => g);
+  
+  const sprint = {
+    name: formData.get('name'),
+    startDate: formData.get('startDate') || null,
+    endDate: formData.get('endDate') || null,
+    status: formData.get('status'),
+    goals
+  };
+  
+  if (editingSprintId) {
+    await updateSprint(editingSprintId, sprint);
+  } else {
+    await createSprint(sprint);
+  }
+  
+  closeSprintModal();
+});
+
+// ===== Drag and drop =====
+
 function handleDragStart(e) {
   draggedCard = e.target;
   e.target.classList.add('dragging');
@@ -309,40 +589,60 @@ document.querySelectorAll('.column-cards').forEach(column => {
   });
 });
 
-// Event listeners
+// ===== Event listeners =====
+
 btnNew.addEventListener('click', openNewModal);
 btnClose.addEventListener('click', closeModal);
 btnCancel.addEventListener('click', closeModal);
 btnDelete.addEventListener('click', () => editingId && deleteIdea(editingId));
 
+// Sprint events
+btnSprint.addEventListener('click', () => {
+  sprintSidebar.classList.toggle('hidden');
+  if (!sprintSidebar.classList.contains('hidden')) {
+    fetchSprints();
+  }
+});
+btnCloseSidebar.addEventListener('click', () => sprintSidebar.classList.add('hidden'));
+btnNewSprint.addEventListener('click', openNewSprintModal);
+btnSprintClose.addEventListener('click', closeSprintModal);
+btnSprintCancel.addEventListener('click', closeSprintModal);
+btnSprintDelete.addEventListener('click', () => editingSprintId && deleteSprint(editingSprintId));
+
 searchInput.addEventListener('input', renderBoard);
 filterPriority.addEventListener('change', renderBoard);
+filterSprint.addEventListener('change', renderBoard);
 
-// Close modal on outside click
+// Close modals on outside click
 modal.addEventListener('click', (e) => {
   if (e.target === modal) closeModal();
 });
+sprintModal.addEventListener('click', (e) => {
+  if (e.target === sprintModal) closeSprintModal();
+});
 
-// Keyboard shortcuts (moved to settings section)
+// ===== Toast notifications =====
 
-// Toast notifications
 function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container') || document.body;
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.textContent = message;
-  document.body.appendChild(toast);
+  container.appendChild(toast);
   
   setTimeout(() => {
     toast.remove();
   }, 3000);
 }
 
-// SSE for live updates
+// ===== SSE for live updates =====
+
 function setupSSE() {
   const evtSource = new EventSource('/api/events');
   
   evtSource.addEventListener('refresh', () => {
     fetchIdeas();
+    fetchSprints();
   });
   
   evtSource.onerror = () => {
@@ -420,10 +720,11 @@ settingsModal.addEventListener('click', (e) => {
   if (e.target === settingsModal) closeSettingsModal();
 });
 
-// Update keyboard handler to close settings modal too
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeModal();
+    closeSprintModal();
     closeSettingsModal();
   }
   if (e.key === 'n' && e.ctrlKey) {
@@ -439,7 +740,6 @@ async function notifyPM() {
   const btn = btnNotifyPM;
   const originalText = btn.textContent;
   
-  // Disable button
   btn.disabled = true;
   btn.textContent = '發送中...';
   
@@ -455,7 +755,6 @@ async function notifyPM() {
       btn.classList.add('success');
       showToast(data.message, 'success');
       
-      // Re-enable after 3 seconds
       setTimeout(() => {
         btn.textContent = originalText;
         btn.classList.remove('success');
@@ -473,6 +772,7 @@ async function notifyPM() {
 
 btnNotifyPM.addEventListener('click', notifyPM);
 
-// Initialize
+// ===== Initialize =====
 fetchIdeas();
+fetchSprints();
 setupSSE();
