@@ -54,6 +54,11 @@ function getUnreadNotifications() {
   return getAllNotifications().filter(n => !n.read);
 }
 
+// Get a single notification by ID
+function getNotificationById(id) {
+  return getAllNotifications().find(n => n.id === id) || null;
+}
+
 // Mark notifications as read
 function markAsRead(ids) {
   const notifications = getAllNotifications();
@@ -141,6 +146,7 @@ module.exports = {
   addNotification,
   getAllNotifications,
   getUnreadNotifications,
+  getNotificationById,
   markAsRead,
   cleanOldNotifications,
   notifyCreate,

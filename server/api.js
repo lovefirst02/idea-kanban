@@ -156,6 +156,38 @@ router.patch('/notifications/mark-read', (req, res) => {
   }
 });
 
+// POST /api/notifications/mark-read - Batch mark notifications as read
+// (Must be defined BEFORE /notifications/:id/read to avoid Express treating "mark-read" as :id)
+router.post('/notifications/mark-read', (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'ids is required (non-empty array)' });
+    }
+    
+    const count = notifications.markAsRead(ids);
+    res.json({ success: true, count });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/notifications/:id/read - Mark a single notification as read
+router.post('/notifications/:id/read', (req, res) => {
+  try {
+    const { id } = req.params;
+    const notification = notifications.getNotificationById(id);
+    if (!notification) {
+      return res.status(404).json({ success: false, error: 'Notification not found' });
+    }
+    
+    notifications.markAsRead(id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // DELETE /api/notifications/cleanup - Clean old notifications
 router.delete('/notifications/cleanup', (req, res) => {
   try {
